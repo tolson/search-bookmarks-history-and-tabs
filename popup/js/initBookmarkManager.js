@@ -2,6 +2,7 @@
  * @file Coordinates the dedicated bookmark manager page.
  */
 
+import './helper/pendoInit.js'
 import { createSearchStringLower } from './helper/browserApi.js'
 import { createExtensionContext } from './helper/extensionContext.js'
 import {

@@ -7,6 +7,7 @@
  * - Link each tag back into the main search view via hash routing so users can drill into results immediately.
  */
 
+import './helper/pendoInit.js'
 import { createExtensionContext } from './helper/extensionContext.js'
 
 import { getEffectiveOptions } from './model/optionsStorage.js'

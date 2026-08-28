@@ -8,6 +8,7 @@
  * - Maintain hash-based routing (`#search/<term>`) and restore cached results to keep navigation snappy.
  */
 
+import './helper/pendoInit.js'
 import { createExtensionContext } from './helper/extensionContext.js'
 import { getEffectiveOptions } from './model/optionsStorage.js'
 import { getSearchData } from './model/searchData.js'
