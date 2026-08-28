@@ -522,6 +522,12 @@ async function saveOptions() {
 
     // Clear any previous error messages
     hideErrors()
+
+    if (typeof pendo !== 'undefined') {
+      pendo.track('options_saved', {
+        customizedOptionCount: Object.keys(normalizedUserOptions).length,
+      })
+    }
   } catch (e) {
     console.error(e)
     showErrorMessage(e)

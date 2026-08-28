@@ -386,6 +386,13 @@ async function saveManagedBookmark() {
     updateBookmarkInMemory(bookmark, values.title, values.url, values.tags, values.customBonusScore)
     resetBookmarkSearchCaches()
     showManagerStatus('Saved bookmark', 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('manager_bookmark_saved', {
+        tagCount: values.tags?.length || 0,
+        hasTags: Boolean(values.tags?.length),
+        hasCustomBonusScore: Boolean(values.customBonusScore),
+      })
+    }
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Save failed', 'error')
@@ -419,6 +426,12 @@ async function moveSelectedBookmarks() {
       await ext.browserApi.bookmarks.move(selectedIds[i], { parentId })
     }
     showManagerStatus(`Moved ${selectedIds.length} bookmark(s)`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('bookmarks_moved', {
+        bookmarkCount: selectedIds.length,
+        targetFolderLabel: getFolderLabelById(parentId),
+      })
+    }
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Move failed', 'error')
@@ -496,6 +509,13 @@ async function suggestTagsForBookmarks(bookmarks, target) {
 
     addManagerTagInputValues(target, tags)
     resetTagSuggestionRetry()
+    if (typeof pendo !== 'undefined') {
+      pendo.track('ai_tags_suggested', {
+        suggestedTagCount: tags.length,
+        bookmarkCount: bookmarks.length,
+        usedLiberalMode: liberal,
+      })
+    }
     showTagSuggestionStatus(`Suggested ${tags.length} tag(s)`, 'success')
     showManagerStatus(`Suggested ${tags.length} tag(s)`, 'success')
     const nextAvailability = await getLocalAiTagAvailability()
@@ -608,6 +628,13 @@ async function bulkTagBookmarks(bookmarkIds, mode) {
     clearBulkTagInput()
     await reloadBookmarkManager({ preserveBookmarkSelection: true })
     showManagerStatus(`Updated ${tagPlans.length} bookmark(s)`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('bulk_tags_applied', {
+        mode,
+        tagCount: tags.length,
+        bookmarkCount: tagPlans.length,
+      })
+    }
   } catch (error) {
     showManagerStatus('Tag update failed', 'error')
     printError(error, 'Could not update bookmark tags.')
@@ -643,6 +670,12 @@ async function deleteSelectedDuplicates() {
     }
 
     showManagerStatus(`Deleted ${selectedIds.length} bookmark(s)`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('duplicates_deleted', {
+        deletedCount: selectedIds.length,
+        duplicateGroupCount: ext.model.bookmarkManager?.duplicateGroups?.length || 0,
+      })
+    }
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Delete failed', 'error')
@@ -712,6 +745,11 @@ async function renameTag(oldTag) {
     }
     await updateTaggedBookmarks(bookmarks, (tags) => uniqueTags(tags.map((tag) => (tag === oldTag ? newTag : tag))))
     showManagerStatus(`Renamed #${oldTag}`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('tag_renamed', {
+        affectedBookmarkCount: bookmarks.length,
+      })
+    }
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Rename failed', 'error')
@@ -749,6 +787,11 @@ async function removeTag(tagName) {
     }
     await updateTaggedBookmarks(bookmarks, (tags) => tags.filter((tag) => tag !== tagName))
     showManagerStatus(`Removed #${tagName}`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('tag_removed', {
+        affectedBookmarkCount: bookmarks.length,
+      })
+    }
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Remove failed', 'error')
@@ -757,17 +800,39 @@ async function removeTag(tagName) {
 }
 
 function generateCleanupPrompt() {
-  const prompt = createBookmarkCleanupPrompt(getScopedCleanupModel(), 'lite', getCleanupPromptOptions()).trim()
+  const options = getCleanupPromptOptions()
+  const prompt = createBookmarkCleanupPrompt(getScopedCleanupModel(), 'lite', options).trim()
   ext.model.bookmarkCleanupPrompt = prompt
   renderBookmarkCleanupPrompt(prompt, Boolean(ext.model.bookmarkManagerLocalAiAvailable))
   showCleanupStatus('Lite prompt generated', 'success')
+  if (typeof pendo !== 'undefined') {
+    pendo.track('ai_cleanup_prompt_generated', {
+      promptType: 'lite',
+      changeLimit: options.changeLimit,
+      changeFocus: options.changeFocus,
+      bookmarkLimit: options.bookmarkLimit,
+      folderScope: ext.model.bookmarkCleanupFolderId || 'all',
+      promptSizeBytes: new Blob([prompt]).size,
+    })
+  }
 }
 
 function generateCleanupPromptFull() {
-  const prompt = createBookmarkCleanupPrompt(getScopedCleanupModel(), 'full', getCleanupPromptOptions()).trim()
+  const options = getCleanupPromptOptions()
+  const prompt = createBookmarkCleanupPrompt(getScopedCleanupModel(), 'full', options).trim()
   ext.model.bookmarkCleanupPrompt = prompt
   renderBookmarkCleanupPrompt(prompt, Boolean(ext.model.bookmarkManagerLocalAiAvailable))
   showCleanupStatus('Full prompt generated', 'success')
+  if (typeof pendo !== 'undefined') {
+    pendo.track('ai_cleanup_prompt_generated', {
+      promptType: 'full',
+      changeLimit: options.changeLimit,
+      changeFocus: options.changeFocus,
+      bookmarkLimit: options.bookmarkLimit,
+      folderScope: ext.model.bookmarkCleanupFolderId || 'all',
+      promptSizeBytes: new Blob([prompt]).size,
+    })
+  }
 }
 
 async function runLocalCleanup() {
@@ -838,6 +903,14 @@ async function runLocalCleanup() {
       false,
     )
     parseCleanupProposalText()
+    if (typeof pendo !== 'undefined') {
+      pendo.track('ai_local_cleanup_completed', {
+        success: true,
+        elapsedMs: getElapsedMs(startedAt),
+        responseSizeBytes: new Blob([responseText]).size,
+        proposedChangeCount: countBookmarkCleanupChanges(ext.model.bookmarkCleanupProposal) || 0,
+      })
+    }
     debugLocalCleanup('parsed response', { elapsedMs: getElapsedMs(startedAt) })
   } catch (error) {
     debugLocalCleanup('failed', {
@@ -845,6 +918,13 @@ async function runLocalCleanup() {
       name: error?.name || 'Error',
       message: error?.message || String(error),
     })
+    if (typeof pendo !== 'undefined') {
+      pendo.track('ai_local_cleanup_completed', {
+        success: false,
+        elapsedMs: getElapsedMs(startedAt),
+        errorName: error?.name || 'Error',
+      })
+    }
     showCleanupStatus('Local cleanup proposal failed', 'error')
     showManagerStatus('Cleanup proposal failed', 'error')
     printError(error, 'Could not create bookmark cleanup proposal with local AI.')
@@ -1145,6 +1225,14 @@ async function applyCleanupChanges(changes, description) {
       console.warn(`Could not apply cleanup change "${change.id || type}".`, error)
       result.failed.push(createCleanupApplyEntry(type, change, bookmarkIds, error))
     }
+  }
+
+  if (typeof pendo !== 'undefined') {
+    pendo.track('ai_cleanup_changes_applied', {
+      appliedCount: result.applied.length,
+      failedCount: result.failed.length,
+      changeTypes: [...new Set(changes.map((c) => c.type))].join(','),
+    })
   }
 
   return result
@@ -1487,6 +1575,12 @@ async function undoBookmarkChange(snapshotId) {
     removeBookmarkUndoSnapshot(snapshot.id)
     updateBookmarkUndoHistory()
     showManagerStatus(`Undid: ${snapshot.description}`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('bookmark_change_undone', {
+        originalAction: snapshot.metadata?.action || '',
+        restoredBookmarkCount: snapshot.bookmarks?.length || 0,
+      })
+    }
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Undo failed', 'error')
@@ -1510,6 +1604,12 @@ function exportBookmarks() {
     link.remove()
     URL.revokeObjectURL(url)
     showManagerStatus('Exported bookmarks', 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('bookmarks_exported', {
+        bookmarkCount: ext.model.bookmarks?.length || 0,
+        tagCount: ext.model.bookmarkManager?.tagGroups?.length || 0,
+      })
+    }
   } catch (error) {
     showManagerStatus('Export failed', 'error')
     printError(error, 'Could not export bookmarks.')
@@ -1562,6 +1662,11 @@ async function importUndoHistory(file) {
     }
     updateBookmarkUndoHistory()
     showManagerStatus(`Imported ${snapshots.length} undo snapshot(s)`, 'success')
+    if (typeof pendo !== 'undefined') {
+      pendo.track('undo_history_imported', {
+        importedSnapshotCount: snapshots.length,
+      })
+    }
   } catch (error) {
     showManagerStatus('Undo import failed', 'error')
     printError(error, 'Could not import bookmark undo history.')

@@ -238,6 +238,14 @@ export function updateBookmark(bookmarkId) {
     console.warn(`No browser bookmarks API found. Bookmark update will not persist.`)
   }
 
+  if (typeof pendo !== 'undefined') {
+    pendo.track('bookmark_updated', {
+      tagCount: formValues.tagsArray.length,
+      hasTags: formValues.tagsArray.length > 0,
+      bonusScore: formValues.bonusScore,
+    })
+  }
+
   // Start search again to update the search index and the UI with new bookmark model
   navigateToSearchView()
 }
@@ -304,6 +312,15 @@ export async function createBookmark() {
       folderArray: [],
       folderArrayLower: [],
       searchStringLower: createSearchStringLower(formValues.title, cleanedUrl, formValues.tags, ''),
+    })
+  }
+
+  if (typeof pendo !== 'undefined') {
+    pendo.track('bookmark_created', {
+      tagCount: formValues.tagsArray.length,
+      hasTags: formValues.tagsArray.length > 0,
+      bonusScore: formValues.bonusScore,
+      folderName: ext.opts.quickBookmarkCurrentTab || '',
     })
   }
 

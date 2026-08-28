@@ -143,6 +143,18 @@ export function openResultItem(event) {
     return
   }
 
+  if (typeof pendo !== 'undefined') {
+    pendo.track('search_result_selected', {
+      searchTerm: (ext.model.searchTerm || '').slice(0, 100),
+      searchStrategy: ext.opts.searchStrategy || '',
+      searchMode: ext.model.searchMode || '',
+      resultType: selectedResult?.type || '',
+      resultIndex: ext.model.currentItem ?? -1,
+      resultsCount: ext.model.result?.length || 0,
+      openMethod: event.ctrlKey ? 'background' : event.shiftKey || event.altKey ? 'modifier' : 'default',
+    })
+  }
+
   if (selectedResult?.type === 'bookmarkCreate') {
     window.location = buildNewBookmarkEditorUrl(selectedResult)
     return
@@ -308,6 +320,7 @@ function getSelectedResult(event) {
 export async function toggleSearchApproach() {
   // Load current user preferences
   const userOptions = await getUserOptions()
+  const previousStrategy = ext.opts.searchStrategy
 
   // Toggle the current search strategy
   if (ext.opts.searchStrategy === 'precise') {
@@ -328,6 +341,13 @@ export async function toggleSearchApproach() {
 
   // Update the UI to reflect the new strategy
   updateSearchApproachToggle()
+
+  if (typeof pendo !== 'undefined') {
+    pendo.track('search_strategy_toggled', {
+      newStrategy: ext.opts.searchStrategy,
+      previousStrategy,
+    })
+  }
 
   // Re-run search with the new strategy
   search()
