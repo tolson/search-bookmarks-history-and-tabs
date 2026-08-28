@@ -10,6 +10,7 @@
 
 import { createExtensionContext } from './helper/extensionContext.js'
 
+import { initPendo } from './helper/pendoInit.js'
 import { getEffectiveOptions } from './model/optionsStorage.js'
 import { getSearchData } from './model/searchData.js'
 import {
@@ -40,6 +41,8 @@ export async function initEditBookmark() {
   const loadingIndicator = document.getElementById('bm-load')
 
   try {
+    await initPendo()
+
     ext.dom.editBookmark = document.getElementById('edit-bm')
     ext.dom.saveButton = document.getElementById('bm-save')
     ext.dom.deleteButton = document.getElementById('bm-del')

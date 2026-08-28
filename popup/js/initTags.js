@@ -9,6 +9,7 @@
 
 import { createExtensionContext } from './helper/extensionContext.js'
 
+import { initPendo } from './helper/pendoInit.js'
 import { getEffectiveOptions } from './model/optionsStorage.js'
 import { getSearchData } from './model/searchData.js'
 import { printError } from './view/errorView.js'
@@ -26,6 +27,8 @@ export async function initTagsPage() {
   const loadingIndicator = document.getElementById('tags-load')
 
   try {
+    await initPendo()
+
     ext.dom.tagsOverview = document.getElementById('tags-view')
     ext.dom.tagsList = document.getElementById('tags-list')
 

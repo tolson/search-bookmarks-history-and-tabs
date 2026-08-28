@@ -1,6 +1,7 @@
 # Distribution
 dist/
 popup/lib/
+popup/pendo/
 
 # Logs
 logs

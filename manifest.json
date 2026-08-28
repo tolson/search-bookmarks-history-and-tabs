@@ -46,6 +46,16 @@
     {
       "resources": ["_favicon/*"],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": [
+        "popup/pendo/guide.css",
+        "popup/pendo/pendo.debugger.min.js",
+        "popup/pendo/debugger-plugin.min.js",
+        "popup/pendo/pendo.preview.min.js",
+        "popup/pendo/fonts/*"
+      ],
+      "matches": ["<all_urls>"]
     }
   ]
 }

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@leeoniya/ufuzzy": "^1.0.19",
+    "@pendo/web-sdk": "^2.338.2",
     "@yaireo/tagify": "^4.38.0",
     "js-yaml": "^5.2.3"
   },
@@ -30,6 +31,7 @@
   "scripts": {
     "prepare": "lefthook install",
     "clean": "node bin/clean.js",
+    "prebuild": "mkdir -p popup/pendo && pendo copy --dest=popup/pendo",
     "build": "npm run clean && npm run build:update-libs && npm run build:bundle && npm run build:update-manifests && npm run build:create-dist && npm run format && npm run size && npm run build:sync-dev-dist",
     "build:bundle": "node bin/bundle.js",
     "build:update-libs": "node bin/updateLibs.js",

@@ -8,6 +8,7 @@
  */
 
 import { createExtensionContext } from './helper/extensionContext.js'
+import { initPendo } from './helper/pendoInit.js'
 import { getEffectiveOptions } from './model/optionsStorage.js'
 import { getSearchData } from './model/searchData.js'
 import { printError } from './view/errorView.js'
@@ -25,6 +26,8 @@ export async function initGroupsPage() {
   const loadingIndicator = document.getElementById('groups-load')
 
   try {
+    await initPendo()
+
     ext.dom.groupsOverview = document.getElementById('groups-view')
     ext.dom.groupsList = document.getElementById('groups-list')
 

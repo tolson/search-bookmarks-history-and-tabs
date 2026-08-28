@@ -9,6 +9,7 @@
  */
 
 import { createExtensionContext } from './helper/extensionContext.js'
+import { initPendo } from './helper/pendoInit.js'
 import { getEffectiveOptions } from './model/optionsStorage.js'
 import { getSearchData } from './model/searchData.js'
 
@@ -40,6 +41,8 @@ initExtension().catch((err) => {
  */
 export async function initExtension() {
   try {
+    await initPendo()
+
     // Load effective options, including user customizations
     ext.opts = await getEffectiveOptions()
 

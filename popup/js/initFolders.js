@@ -9,6 +9,7 @@
 
 import { createExtensionContext } from './helper/extensionContext.js'
 
+import { initPendo } from './helper/pendoInit.js'
 import { getEffectiveOptions } from './model/optionsStorage.js'
 import { getSearchData } from './model/searchData.js'
 import { printError } from './view/errorView.js'
@@ -26,6 +27,8 @@ export async function initFoldersPage() {
   const loadingIndicator = document.getElementById('folders-load')
 
   try {
+    await initPendo()
+
     ext.dom.foldersOverview = document.getElementById('folders-view')
     ext.dom.foldersList = document.getElementById('folders-list')
 

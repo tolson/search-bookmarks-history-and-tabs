@@ -10,6 +10,7 @@ import {
   LOCAL_AI_TAG_SELECTION_WARNING_LIMIT,
   suggestBookmarkTags,
 } from './helper/localAiTags.js'
+import { initPendo } from './helper/pendoInit.js'
 import { cleanUpUrl } from './helper/utils.js'
 import {
   createCleanupApplyEntry,
@@ -99,6 +100,8 @@ initBookmarkManager().catch((error) => {
  * Initialize the dedicated bookmark manager page.
  */
 export async function initBookmarkManager() {
+  await initPendo()
+
   ext.dom.manager = getBookmarkManagerDom()
   await initOptions({ redirectAfterSave: './bookmarkManager.html#overview' })
   ext.opts = await getEffectiveOptions()
