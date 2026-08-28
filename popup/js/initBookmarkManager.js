@@ -386,6 +386,11 @@ async function saveManagedBookmark() {
     updateBookmarkInMemory(bookmark, values.title, values.url, values.tags, values.customBonusScore)
     resetBookmarkSearchCaches()
     showManagerStatus('Saved bookmark', 'success')
+    globalThis.pendo?.track('bookmark_saved_in_manager', {
+      hasTags: values.tags.length > 0,
+      tagCount: values.tags.length,
+      hasBonusScore: (values.customBonusScore || 0) > 0,
+    })
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Save failed', 'error')
@@ -419,6 +424,9 @@ async function moveSelectedBookmarks() {
       await ext.browserApi.bookmarks.move(selectedIds[i], { parentId })
     }
     showManagerStatus(`Moved ${selectedIds.length} bookmark(s)`, 'success')
+    globalThis.pendo?.track('bookmarks_moved', {
+      bookmarkCount: selectedIds.length,
+    })
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Move failed', 'error')
@@ -498,6 +506,12 @@ async function suggestTagsForBookmarks(bookmarks, target) {
     resetTagSuggestionRetry()
     showTagSuggestionStatus(`Suggested ${tags.length} tag(s)`, 'success')
     showManagerStatus(`Suggested ${tags.length} tag(s)`, 'success')
+    globalThis.pendo?.track('ai_tags_suggested', {
+      bookmarkCount: bookmarks.length,
+      suggestedTagCount: tags.length,
+      isRetry: liberal,
+      aiAvailability: availability,
+    })
     const nextAvailability = await getLocalAiTagAvailability()
     showLocalAiTagAvailability(nextAvailability)
   } catch (error) {
@@ -608,6 +622,11 @@ async function bulkTagBookmarks(bookmarkIds, mode) {
     clearBulkTagInput()
     await reloadBookmarkManager({ preserveBookmarkSelection: true })
     showManagerStatus(`Updated ${tagPlans.length} bookmark(s)`, 'success')
+    globalThis.pendo?.track('bulk_tags_applied', {
+      bookmarkCount: tagPlans.length,
+      tagCount: tags.length,
+      mode,
+    })
   } catch (error) {
     showManagerStatus('Tag update failed', 'error')
     printError(error, 'Could not update bookmark tags.')
@@ -643,6 +662,9 @@ async function deleteSelectedDuplicates() {
     }
 
     showManagerStatus(`Deleted ${selectedIds.length} bookmark(s)`, 'success')
+    globalThis.pendo?.track('duplicates_deleted', {
+      bookmarkCount: selectedIds.length,
+    })
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Delete failed', 'error')
@@ -712,6 +734,9 @@ async function renameTag(oldTag) {
     }
     await updateTaggedBookmarks(bookmarks, (tags) => uniqueTags(tags.map((tag) => (tag === oldTag ? newTag : tag))))
     showManagerStatus(`Renamed #${oldTag}`, 'success')
+    globalThis.pendo?.track('tag_renamed', {
+      affectedBookmarkCount: bookmarks.length,
+    })
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Rename failed', 'error')
@@ -749,6 +774,9 @@ async function removeTag(tagName) {
     }
     await updateTaggedBookmarks(bookmarks, (tags) => tags.filter((tag) => tag !== tagName))
     showManagerStatus(`Removed #${tagName}`, 'success')
+    globalThis.pendo?.track('tag_removed', {
+      affectedBookmarkCount: bookmarks.length,
+    })
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Remove failed', 'error')
@@ -757,17 +785,37 @@ async function removeTag(tagName) {
 }
 
 function generateCleanupPrompt() {
-  const prompt = createBookmarkCleanupPrompt(getScopedCleanupModel(), 'lite', getCleanupPromptOptions()).trim()
+  const scopedModel = getScopedCleanupModel()
+  const promptOptions = getCleanupPromptOptions()
+  const prompt = createBookmarkCleanupPrompt(scopedModel, 'lite', promptOptions).trim()
   ext.model.bookmarkCleanupPrompt = prompt
   renderBookmarkCleanupPrompt(prompt, Boolean(ext.model.bookmarkManagerLocalAiAvailable))
   showCleanupStatus('Lite prompt generated', 'success')
+  globalThis.pendo?.track('ai_cleanup_prompt_generated', {
+    mode: 'lite',
+    bookmarkCount: scopedModel.bookmarks?.length ?? 0,
+    changeFocus: promptOptions.changeFocus,
+    changeLimit: promptOptions.changeLimit,
+    bookmarkLimit: promptOptions.bookmarkLimit,
+    promptSizeBytes: new Blob([prompt]).size,
+  })
 }
 
 function generateCleanupPromptFull() {
-  const prompt = createBookmarkCleanupPrompt(getScopedCleanupModel(), 'full', getCleanupPromptOptions()).trim()
+  const scopedModel = getScopedCleanupModel()
+  const promptOptions = getCleanupPromptOptions()
+  const prompt = createBookmarkCleanupPrompt(scopedModel, 'full', promptOptions).trim()
   ext.model.bookmarkCleanupPrompt = prompt
   renderBookmarkCleanupPrompt(prompt, Boolean(ext.model.bookmarkManagerLocalAiAvailable))
   showCleanupStatus('Full prompt generated', 'success')
+  globalThis.pendo?.track('ai_cleanup_prompt_generated', {
+    mode: 'full',
+    bookmarkCount: scopedModel.bookmarks?.length ?? 0,
+    changeFocus: promptOptions.changeFocus,
+    changeLimit: promptOptions.changeLimit,
+    bookmarkLimit: promptOptions.bookmarkLimit,
+    promptSizeBytes: new Blob([prompt]).size,
+  })
 }
 
 async function runLocalCleanup() {
@@ -791,6 +839,7 @@ async function runLocalCleanup() {
   }
 
   let session
+  let usedFallback = false
   try {
     renderBookmarkCleanupPrompt(prompt, false)
     showCleanupStatus('Starting local AI...', 'info', false)
@@ -816,6 +865,7 @@ async function runLocalCleanup() {
         throw error
       }
 
+      usedFallback = true
       debugLocalCleanup('constrained prompt timed out; retrying without responseConstraint', {
         elapsedMs: getElapsedMs(startedAt),
         timeoutMs: LOCAL_AI_PROMPT_TIMEOUT_MS,
@@ -839,6 +889,14 @@ async function runLocalCleanup() {
     )
     parseCleanupProposalText()
     debugLocalCleanup('parsed response', { elapsedMs: getElapsedMs(startedAt) })
+    globalThis.pendo?.track('local_ai_cleanup_completed', {
+      success: true,
+      changeCount: ext.model.bookmarkCleanupProposal
+        ? countBookmarkCleanupChanges(ext.model.bookmarkCleanupProposal)
+        : 0,
+      elapsedMs: getElapsedMs(startedAt),
+      usedFallbackUnconstrained: usedFallback,
+    })
   } catch (error) {
     debugLocalCleanup('failed', {
       elapsedMs: getElapsedMs(startedAt),
@@ -848,6 +906,12 @@ async function runLocalCleanup() {
     showCleanupStatus('Local cleanup proposal failed', 'error')
     showManagerStatus('Cleanup proposal failed', 'error')
     printError(error, 'Could not create bookmark cleanup proposal with local AI.')
+    globalThis.pendo?.track('local_ai_cleanup_completed', {
+      success: false,
+      changeCount: 0,
+      elapsedMs: getElapsedMs(startedAt),
+      usedFallbackUnconstrained: usedFallback,
+    })
   } finally {
     destroyLocalCleanupSession(session, startedAt)
     renderBookmarkCleanupPrompt(prompt, Boolean(ext.model.bookmarkManagerLocalAiAvailable))
@@ -1041,6 +1105,12 @@ async function applyCleanupChange(type, index) {
     markAppliedCleanupChanges(result.applied)
     renderCleanupProposal()
     showCleanupApplyResult(result, 'cleanup change')
+    globalThis.pendo?.track('ai_cleanup_changes_applied', {
+      scope: 'single',
+      appliedCount: result.applied.length,
+      failedCount: result.failed.length,
+      changeTypes: [type],
+    })
     if (result.applied.length) {
       await reloadBookmarkManager({ preserveBookmarkSelection: true })
     }
@@ -1072,6 +1142,12 @@ async function applyCleanupCategory(type) {
     markAppliedCleanupChanges(result.applied)
     renderCleanupProposal()
     showCleanupApplyResult(result, 'cleanup category')
+    globalThis.pendo?.track('ai_cleanup_changes_applied', {
+      scope: 'category',
+      appliedCount: result.applied.length,
+      failedCount: result.failed.length,
+      changeTypes: [type],
+    })
     if (result.applied.length) {
       await reloadBookmarkManager({ preserveBookmarkSelection: true })
     }
@@ -1099,6 +1175,12 @@ async function applyAllCleanupChanges() {
     markAppliedCleanupChanges(result.applied)
     renderCleanupProposal()
     showCleanupApplyResult(result, 'cleanup changes')
+    globalThis.pendo?.track('ai_cleanup_changes_applied', {
+      scope: 'all',
+      appliedCount: result.applied.length,
+      failedCount: result.failed.length,
+      changeTypes: [...new Set(changes.map((c) => c.type))],
+    })
     if (result.applied.length) {
       await reloadBookmarkManager({ preserveBookmarkSelection: true })
     }
@@ -1487,6 +1569,10 @@ async function undoBookmarkChange(snapshotId) {
     removeBookmarkUndoSnapshot(snapshot.id)
     updateBookmarkUndoHistory()
     showManagerStatus(`Undid: ${snapshot.description}`, 'success')
+    globalThis.pendo?.track('bookmark_change_undone', {
+      action: snapshot.metadata?.action || 'unknown',
+      bookmarkCount: snapshot.bookmarks?.length ?? 0,
+    })
     await reloadBookmarkManager()
   } catch (error) {
     showManagerStatus('Undo failed', 'error')
@@ -1510,6 +1596,9 @@ function exportBookmarks() {
     link.remove()
     URL.revokeObjectURL(url)
     showManagerStatus('Exported bookmarks', 'success')
+    globalThis.pendo?.track('bookmarks_exported', {
+      bookmarkCount: ext.model.bookmarks?.length ?? 0,
+    })
   } catch (error) {
     showManagerStatus('Export failed', 'error')
     printError(error, 'Could not export bookmarks.')
@@ -1536,6 +1625,9 @@ function exportUndoHistory() {
     link.remove()
     URL.revokeObjectURL(url)
     showManagerStatus('Exported undo history', 'success')
+    globalThis.pendo?.track('undo_history_exported', {
+      snapshotCount: snapshots.length,
+    })
   } catch (error) {
     showManagerStatus('Undo export failed', 'error')
     printError(error, 'Could not export bookmark undo history.')
@@ -1562,6 +1654,9 @@ async function importUndoHistory(file) {
     }
     updateBookmarkUndoHistory()
     showManagerStatus(`Imported ${snapshots.length} undo snapshot(s)`, 'success')
+    globalThis.pendo?.track('undo_history_imported', {
+      snapshotCount: snapshots.length,
+    })
   } catch (error) {
     showManagerStatus('Undo import failed', 'error')
     printError(error, 'Could not import bookmark undo history.')

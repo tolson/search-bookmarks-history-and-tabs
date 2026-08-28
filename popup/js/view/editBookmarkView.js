@@ -238,6 +238,12 @@ export function updateBookmark(bookmarkId) {
     console.warn(`No browser bookmarks API found. Bookmark update will not persist.`)
   }
 
+  globalThis.pendo?.track('bookmark_updated', {
+    hasTags: formValues.tagsArray.length > 0,
+    tagCount: formValues.tagsArray.length,
+    hasBonusScore: formValues.bonusScore > 0,
+  })
+
   // Start search again to update the search index and the UI with new bookmark model
   navigateToSearchView()
 }
@@ -306,6 +312,12 @@ export async function createBookmark() {
       searchStringLower: createSearchStringLower(formValues.title, cleanedUrl, formValues.tags, ''),
     })
   }
+
+  globalThis.pendo?.track('bookmark_created', {
+    hasTags: formValues.tagsArray.length > 0,
+    tagCount: formValues.tagsArray.length,
+    hasBonusScore: formValues.bonusScore > 0,
+  })
 
   resetFuzzySearchState('bookmarks')
   resetSimpleSearchState('bookmarks')
@@ -484,6 +496,9 @@ export async function deleteBookmark(bookmarkId) {
   ext.model.bookmarks = ext.model.bookmarks.filter((el) => {
     return el.originalId !== bookmarkId
   })
+
+  globalThis.pendo?.track('bookmark_deleted')
+
   resetFuzzySearchState('bookmarks')
   resetSimpleSearchState('bookmarks')
   resetUniqueFoldersCache()

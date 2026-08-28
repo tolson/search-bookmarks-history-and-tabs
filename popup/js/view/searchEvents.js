@@ -137,6 +137,23 @@ export function openResultItem(event) {
   const url = selectedResult?.originalUrl ?? resultEntry?.getAttribute('x-open-url')
   const normalizedUrl = selectedResult?.url ?? (url ? cleanUpUrl(url) : '')
 
+  if (globalThis.pendo) {
+    const altMod = event.shiftKey || event.altKey
+    const wouldUseCurrentTab = ext.opts.openInCurrentTab ? !altMod : altMod
+    let openMethod = 'new_tab'
+    if (event.button === 2) openMethod = 'copy_url'
+    else if (selectedResult?.type === 'bookmarkCreate') openMethod = 'create_bookmark'
+    else if (event.ctrlKey) openMethod = 'background_tab'
+    else if (wouldUseCurrentTab) openMethod = 'current_tab'
+    globalThis.pendo.track('search_result_opened', {
+      resultType: selectedResult?.type || 'unknown',
+      openMethod,
+      resultIndex: ext.model.currentItem ?? 0,
+      searchMode: ext.model.searchMode || 'all',
+      searchStrategy: ext.opts.searchStrategy || 'fuzzy',
+    })
+  }
+
   // Handle right-click to copy URL to clipboard
   if (event.button === 2) {
     navigator.clipboard.writeText(url)
@@ -310,6 +327,7 @@ export async function toggleSearchApproach() {
   const userOptions = await getUserOptions()
 
   // Toggle the current search strategy
+  const previousStrategy = ext.opts.searchStrategy
   if (ext.opts.searchStrategy === 'precise') {
     ext.opts.searchStrategy = 'fuzzy'
   } else {
@@ -320,6 +338,11 @@ export async function toggleSearchApproach() {
   // No validation needed here - the value is always valid since it's controlled by code
   userOptions.searchStrategy = ext.opts.searchStrategy
   await setUserOptions(userOptions)
+
+  globalThis.pendo?.track('search_strategy_toggled', {
+    newStrategy: ext.opts.searchStrategy,
+    previousStrategy,
+  })
 
   // Clear the search cache to prevent stale results from the previous strategy
   if (ext.searchCache) {

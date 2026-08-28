@@ -522,6 +522,10 @@ async function saveOptions() {
 
     // Clear any previous error messages
     hideErrors()
+
+    globalThis.pendo?.track('settings_saved', {
+      customizedOptionCount: Object.keys(normalizedUserOptions).length,
+    })
   } catch (e) {
     console.error(e)
     showErrorMessage(e)
@@ -543,6 +547,7 @@ async function resetOptions() {
   syncFormFromOptions({})
   hideErrors()
   await validateCurrentOptions({ showOverlay: false })
+  globalThis.pendo?.track('settings_reset')
 }
 
 async function syncOptionsFromYaml() {
