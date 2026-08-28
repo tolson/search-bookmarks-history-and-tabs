@@ -8,6 +8,7 @@
  * - Handle hash changes mid-session to reload different bookmarks without refreshing the page.
  */
 
+import './helper/pendoInit.js'
 import { createExtensionContext } from './helper/extensionContext.js'
 
 import { getEffectiveOptions } from './model/optionsStorage.js'
